@@ -1,0 +1,14 @@
+There are different ways to map a printer to a machine
+
+The preffered option f you are on a domain is to use Group Policy preferences
+
+On powershell the command is similar to the below
+$prnt = [wmiclass]"Win32_Printer"
+$prnt.AddPrinterConnection("\\PrintServer\PrintShare")
+
+For DOS based application or any application that can use LPT ports you can use:
+net use LPTx: \\servername\printer /persistent:yes
+
+Running net use and mapping a printer to a LPT port will cause the printer not to show up on printers and devices on a Windows 10 Machine
+
+For Windows 10 make sure you use V4 printer drivers. Earlier versions of Windows do not like v4 drivers.
