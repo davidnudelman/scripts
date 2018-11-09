@@ -1,2 +1,2 @@
 # scripts
-Welcome! I will be sharing some interesting cripts and resources here.
+Welcome! I will be sharing some interesting scripts and resources here.
