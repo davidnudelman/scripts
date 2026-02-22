@@ -1,0 +1,5 @@
+hosts = postgres
+dbname = mailserver
+user = mailuser
+password = changeme
+query = SELECT name FROM domains WHERE name='%s' AND active = TRUE

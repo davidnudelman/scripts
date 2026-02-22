@@ -1,0 +1,169 @@
+version: "3.8"
+
+services:
+  # ── Reverse Proxy & TLS ──────────────────────────────────
+  nginx:
+    build: ./config/nginx
+    container_name: mail-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./config/autodiscover:/srv/autodiscover:ro
+      - certs:/etc/letsencrypt
+      - admin-static:/srv/admin/static:ro
+    depends_on:
+      - admin
+    networks:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+  # ── Postfix (SMTP MTA) ──────────────────────────────────
+  postfix:
+    build: ./config/postfix
+    container_name: mail-postfix
+    hostname: ${MAIL_HOSTNAME:-mail.example.com}
+    ports:
+      - "25:25"
+      - "587:587"
+    volumes:
+      - ./config/postfix/main.cf:/etc/postfix/main.cf:ro
+      - ./config/postfix/master.cf:/etc/postfix/master.cf:ro
+      - ./config/postfix/sql:/etc/postfix/sql:ro
+      - maildata:/var/mail/vhosts
+      - certs:/etc/letsencrypt:ro
+      - dkim-keys:/etc/opendkim/keys
+    environment:
+      - MAIL_HOSTNAME=${MAIL_HOSTNAME:-mail.example.com}
+      - MAIL_DOMAIN=${MAIL_DOMAIN:-example.com}
+      - DB_HOST=postgres
+      - DB_NAME=${DB_NAME:-mailserver}
+      - DB_USER=${DB_USER:-mailuser}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rspamd:
+        condition: service_started
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # ── Dovecot (IMAP / POP3 MDA) ───────────────────────────
+  dovecot:
+    build: ./config/dovecot
+    container_name: mail-dovecot
+    ports:
+      - "993:993"
+      - "995:995"
+      - "4190:4190"
+    volumes:
+      - ./config/dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
+      - ./config/dovecot/sql:/etc/dovecot/sql:ro
+      - maildata:/var/mail/vhosts
+      - certs:/etc/letsencrypt:ro
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=${DB_NAME:-mailserver}
+      - DB_USER=${DB_USER:-mailuser}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # ── Rspamd (spam filtering + DKIM signing) ──────────────
+  rspamd:
+    image: rspamd/rspamd:latest
+    container_name: mail-rspamd
+    volumes:
+      - ./config/rspamd/local.d:/etc/rspamd/local.d:ro
+      - ./config/rspamd/override.d:/etc/rspamd/override.d:ro
+      - dkim-keys:/var/lib/rspamd/dkim:ro
+      - rspamd-data:/var/lib/rspamd
+    depends_on:
+      - redis
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # ── ClamAV (antivirus) ──────────────────────────────────
+  clamav:
+    image: clamav/clamav:stable
+    container_name: mail-clamav
+    volumes:
+      - clamav-data:/var/lib/clamav
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # ── Redis (Rspamd backend) ──────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: mail-redis
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # ── PostgreSQL ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: mail-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-mailserver}
+      POSTGRES_USER: ${DB_USER:-mailuser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mailuser} -d ${DB_NAME:-mailserver}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # ── Web Admin (FastAPI) ─────────────────────────────────
+  admin:
+    build: ./admin
+    container_name: mail-admin
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=${DB_NAME:-mailserver}
+      - DB_USER=${DB_USER:-mailuser}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - SECRET_KEY=${ADMIN_SECRET_KEY:-change-this-to-a-random-secret}
+      - MAIL_HOSTNAME=${MAIL_HOSTNAME:-mail.example.com}
+      - MAIL_DOMAIN=${MAIL_DOMAIN:-example.com}
+    volumes:
+      - dkim-keys:/etc/opendkim/keys
+      - admin-static:/app/static
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  maildata:
+  pgdata:
+  certs:
+  dkim-keys:
+  rspamd-data:
+  redis-data:
+  clamav-data:
+  admin-static:
+
+networks:
+  frontend:
+  backend:

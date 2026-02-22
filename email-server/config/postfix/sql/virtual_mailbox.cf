@@ -1,0 +1,5 @@
+hosts = postgres
+dbname = mailserver
+user = mailuser
+password = changeme
+query = SELECT CONCAT(d.name, '/', SUBSTRING(u.email FROM 1 FOR POSITION('@' IN u.email) - 1), '/') FROM users u JOIN domains d ON u.domain_id = d.id WHERE u.email='%s' AND u.active = TRUE AND d.active = TRUE

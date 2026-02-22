@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mail Server Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ── Login View ────────────────────────────────────── -->
+<div id="login-view" class="login-container">
+    <div class="login-box">
+        <h1>Mail Server Admin</h1>
+        <form onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="login-email" required placeholder="admin@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-password" required placeholder="Password">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+                Sign In
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- ── App View ──────────────────────────────────────── -->
+<div id="app-view" class="app" style="display:none;">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <h1>Mail Admin</h1>
+        <nav>
+            <a href="#" data-page="dashboard" class="active">Dashboard</a>
+            <a href="#" data-page="domains">Domains</a>
+            <a href="#" data-page="users">Users</a>
+            <a href="#" data-page="aliases">Aliases</a>
+            <a href="#" data-page="dkim">DKIM Keys</a>
+            <a href="#" data-page="dns">DNS Records</a>
+            <a href="#" data-page="settings">Settings</a>
+        </nav>
+        <div style="position:absolute;bottom:1rem;padding:0 1.5rem;">
+            <a href="#" onclick="API.logout()" style="color:rgba(255,255,255,0.5);font-size:0.85rem;text-decoration:none;">
+                Sign Out
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main">
+
+        <!-- Dashboard -->
+        <div id="page-dashboard" class="page">
+            <h2>Dashboard</h2>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="label">Domains</div>
+                    <div class="value" id="stat-domains">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total Users</div>
+                    <div class="value" id="stat-users">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Active Users</div>
+                    <div class="value" id="stat-active-users">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Aliases</div>
+                    <div class="value" id="stat-aliases">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Domains -->
+        <div id="page-domains" class="page" style="display:none;">
+            <h2>
+                Domains
+                <button class="btn btn-primary" onclick="showModal('modal-domain')">Add Domain</button>
+            </h2>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr><th>Domain</th><th>Users</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody id="domains-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Users -->
+        <div id="page-users" class="page" style="display:none;">
+            <h2>
+                Users
+                <button class="btn btn-primary" onclick="showModal('modal-user')">Add User</button>
+            </h2>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr><th>Email</th><th>Name</th><th>Quota</th><th>Status</th><th>Role</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody id="users-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Aliases -->
+        <div id="page-aliases" class="page" style="display:none;">
+            <h2>
+                Aliases
+                <button class="btn btn-primary" onclick="showModal('modal-alias')">Add Alias</button>
+            </h2>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr><th>Source</th><th>Destination</th><th>Status</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody id="aliases-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- DKIM -->
+        <div id="page-dkim" class="page" style="display:none;">
+            <h2>DKIM Keys</h2>
+            <div id="dkim-content"></div>
+        </div>
+
+        <!-- DNS Records -->
+        <div id="page-dns" class="page" style="display:none;">
+            <h2>Required DNS Records</h2>
+            <p style="color:var(--text-muted);margin-bottom:1rem;">
+                Add these records to your domain's DNS to ensure proper mail delivery, SPF, DKIM, and DMARC compliance.
+            </p>
+            <div id="dns-content"></div>
+        </div>
+
+        <!-- Settings -->
+        <div id="page-settings" class="page" style="display:none;">
+            <h2>Server Settings</h2>
+            <div class="card">
+                <div id="settings-form"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ── Modals ────────────────────────────────────────── -->
+
+<!-- Add Domain Modal -->
+<div id="modal-domain" class="modal-overlay" onclick="if(event.target===this)hideModal('modal-domain')">
+    <div class="modal">
+        <h3>Add Domain</h3>
+        <div class="form-group">
+            <label>Domain Name</label>
+            <input type="text" id="domain-name" placeholder="example.com">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="hideModal('modal-domain')">Cancel</button>
+            <button class="btn btn-primary" onclick="Pages.addDomain()">Add Domain</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="modal-user" class="modal-overlay" onclick="if(event.target===this)hideModal('modal-user')">
+    <div class="modal">
+        <h3>Add User</h3>
+        <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="user-email" placeholder="user@example.com">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="user-password" placeholder="Minimum 8 characters">
+        </div>
+        <div class="form-group">
+            <label>Display Name</label>
+            <input type="text" id="user-display-name" placeholder="John Doe">
+        </div>
+        <div class="form-group">
+            <label>Quota (MB)</label>
+            <input type="number" id="user-quota" value="1024" min="0">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="hideModal('modal-user')">Cancel</button>
+            <button class="btn btn-primary" onclick="Pages.addUser()">Create User</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Alias Modal -->
+<div id="modal-alias" class="modal-overlay" onclick="if(event.target===this)hideModal('modal-alias')">
+    <div class="modal">
+        <h3>Add Alias</h3>
+        <div class="form-group">
+            <label>Source (from)</label>
+            <input type="email" id="alias-source" placeholder="info@example.com">
+        </div>
+        <div class="form-group">
+            <label>Destination (to)</label>
+            <input type="email" id="alias-destination" placeholder="user@example.com">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="hideModal('modal-alias')">Cancel</button>
+            <button class="btn btn-primary" onclick="Pages.addAlias()">Create Alias</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

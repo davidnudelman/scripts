@@ -1,0 +1,5 @@
+hosts = postgres
+dbname = mailserver
+user = mailuser
+password = changeme
+query = SELECT destination FROM aliases WHERE source='%s' AND active = TRUE
